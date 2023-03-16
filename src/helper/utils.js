@@ -11,8 +11,8 @@ export function randomRgba(minOpacity = 0) {
   return 'rgba(' + rand(range) + ',' + rand(range) + ',' + rand(range) + ',' + randFloat(1, minOpacity).toFixed(1) + ')';
 }
 
-export const DefaultObjectWidth = 100;
-export const DefaultObjectHeight = 100;
+export const DEFAULT_OBJECT_WIDTH = 100;
+export const DEFAULT_OBJECT_HEIGHT = 100;
 
 export function getLastObject(canvas) {
   const allObjects = canvas.getObjects();
@@ -28,10 +28,10 @@ export function getNewCoords(canvas) {
     top: lastObj?.top + 10 || 0,
   }
 
-  if (newCoords.left + DefaultObjectWidth > constrainHorizontal) {
+  if (newCoords.left + DEFAULT_OBJECT_WIDTH > constrainHorizontal) {
     newCoords.left = 0;
   }
-  if (newCoords.top + DefaultObjectHeight > constrainVertical) {
+  if (newCoords.top + DEFAULT_OBJECT_HEIGHT > constrainVertical) {
     newCoords.top = 0;
   }
 
