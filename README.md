@@ -1,4 +1,4 @@
-# candidate-js-live-test
+# Fabric-js-demo
 
 ## Project setup
 ```
