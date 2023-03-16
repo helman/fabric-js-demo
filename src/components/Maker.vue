@@ -2,7 +2,9 @@
   <div class="hello">
     <h1 class="text-center">Maker</h1>
     <div class="maker-container">
-      <canvas class="" ref="can" width="800" height="800"></canvas>
+      <div class="canvas-container">
+        <canvas class="" ref="can" width="800" height="800"></canvas>
+      </div>
       <div id=controls>
         <button id="addNewSquare" @click="addNewSquare">Add New Square</button>
         <button id="evenlySpaceVertically" @click="evenlySpaceVertically">Evenly Space Vertically</button>
@@ -10,7 +12,7 @@
         <button id="reRenderCanvas" @click="reRenderCanvas">Re-Render Canvas</button>
         <button id="undo" @click="undo">Undo</button>
         <button id="redo" @click="redo">Redo</button>
-        <select id="color-picker" ref="colorPicker" @change="changeObjColor" disabled>
+        <select id="color-picker" ref="colorPicker" @change="changeObjColor" :disabled="disableColorPicker">
           <option value="red">Red</option>
           <option value="blue">Blue</option>
           <option value="green">Green</option>
@@ -22,8 +24,52 @@
 
 <script>
 import { fabric } from 'fabric';
-import { History, HistoryActions } from '@/helper/history';
-import { DefaultObjectWidth, DefaultObjectHeight, getNewCoords, randomRgba } from '@/helper/utils';
+import { History, HistoryActions, registerHandler } from '@/helper/history';
+import { DefaultObjectWidth, DefaultObjectHeight, getNewCoords, rand } from '@/helper/utils';
+
+registerHandler(HistoryActions.Add, () => (null), (data, {canvas}) => {
+  canvas.remove(data.obj);
+  canvas.renderAll();
+}, (data, {canvas}) => {
+  canvas.add(data.obj, {skipHistory: true});
+  canvas.renderAll();
+});
+
+registerHandler(HistoryActions.Modified, (e, history) => {
+  const observedFields = [
+    'angle',
+    'flipX',
+    'flipY',
+    'left',
+    'originX',
+    'originY',
+    'scaleX',
+    'scaleY',
+    'skewX',
+    'skewY',
+    'top',
+  ];
+  const captureObservedFieldValue = (obj) => {
+    return observedFields.reduce((ac, field) => {
+      ac[field] = obj[field];
+      return ac;
+    }, {});
+  }
+
+  history.add(HistoryActions.Modified, {
+    obj: e.target,
+    oldValue: captureObservedFieldValue(e.transform.original),
+    newValue: captureObservedFieldValue(e.target),
+  })
+}, (data, {canvas}) => {
+  data.obj.set(data.oldValue);
+  data.obj.setCoords();
+  canvas.renderAll();
+}, (data, {canvas}) => {
+  data.obj.set(data.newValue);
+  data.obj.setCoords();
+  canvas.renderAll();
+});
 
 export default {
   name: 'Maker',
@@ -33,8 +79,9 @@ export default {
   }),
   mounted() {
     const ref = this.$refs.can;
-    const canvas = this.canvas = new fabric.Canvas(ref);
-    const history = this.canvas.history = new History(this.canvas);
+    this.canvas = new fabric.Canvas(ref);
+    new History(this.canvas);
+
     this.canvas.on('selection:cleared', () => {
       this.onObjDeselected();
     });
@@ -43,50 +90,6 @@ export default {
     });
     this.canvas.on('selection:created', () => {
       this.onObjSelected(this.canvas.getActiveObjects());
-    });
-
-    history.registerHandler(HistoryActions.Add, () => (null), (data) => {
-      canvas.remove(data.obj);
-      canvas.renderAll();
-    }, (data) => {
-      canvas.add(data.obj, {skipHistory: true});
-      canvas.renderAll();
-    });
-
-    history.registerHandler(HistoryActions.Modified, (e) => {
-      const observedFields = [
-        'angle',
-        'flipX',
-        'flipY',
-        'left',
-        'originX',
-        'originY',
-        'scaleX',
-        'scaleY',
-        'skewX',
-        'skewY',
-        'top',
-      ];
-      const captureObservedFieldValue = (obj) => {
-        return observedFields.reduce((ac, field) => {
-          ac[field] = obj[field];
-          return ac;
-        }, {});
-      }
-
-      history.add(HistoryActions.Modified, {
-        obj: e.target,
-        oldValue: captureObservedFieldValue(e.transform.original),
-        newValue: captureObservedFieldValue(e.target),
-      })
-    }, (data) => {
-      data.obj.set(data.oldValue);
-      data.obj.setCoords();
-      canvas.renderAll();
-    }, (data) => {
-      data.obj.set(data.newValue);
-      data.obj.setCoords();
-      canvas.renderAll();
     });
 
     this.addNewSquare()
@@ -156,6 +159,9 @@ export default {
     },
     changeObjColor(e) {
       const color = e?.target?.value;
+      if (!this.selectedObjs) {
+        return;
+      }
       this.selectedObjs[0].set('fill', color)
       this.canvas.renderAll();
     },

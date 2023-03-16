@@ -4,18 +4,20 @@ export const HistoryActions = {
   Modified: 'modified',
 }
 
+const actionHandlers = {};
+export function registerHandler(action, onEvent, onUndo, onRedo) {
+  actionHandlers[action] = {
+    onEvent,
+    onUndo,
+    onRedo,
+  }
+}
+
 export function History(canvas) {
+  canvas.history = this;
   this.canvas = canvas;
   this.data = [];
   this.cursor = -1;
-  this.actionHandlers = {};
-  this.registerHandler = (action, onEvent, onUndo, onRedo) => {
-    this.actionHandlers[action] = {
-      onEvent,
-      onUndo,
-      onRedo,
-    }
-  }
 
   const canvasAdd = canvas.add;
   canvas.add = (obj, option) => {
@@ -31,13 +33,12 @@ export function History(canvas) {
   }
 
   canvas.on('object:modified', (e) => {
-    this.actionHandlers[HistoryActions.Modified].onEvent(e);
+    actionHandlers[HistoryActions.Modified].onEvent(e, this);
   });
 
   this.add = (action, params) => {
-    console.log('adding history', action, params, this.cursor, this.data.length - 1);
     if (this.cursor < this.data.length - 1) {
-      this.data.splice(this.cursor, this.data.length - this.cursor - 1);
+      this.data.splice(this.cursor + 1, this.data.length - this.cursor - 1);
     }
 
     this.data.push({
@@ -49,12 +50,11 @@ export function History(canvas) {
   };
 
   this.undo = () => {
-    console.log('undo', this.cursor, this.data[this.cursor]);
     if (this.cursor < 0) {
       return;
     }
     const data = this.data[this.cursor];
-    this.actionHandlers[data.action].onUndo(data.params);
+    actionHandlers[data.action].onUndo(data.params, this);
     this.cursor--;
   }
 
@@ -64,12 +64,6 @@ export function History(canvas) {
     }
     this.cursor++;
     const data = this.data[this.cursor];
-    this.actionHandlers[data.action].onRedo(data.params);
-  }
-
-  this.observe = (obj, event) => {
-    obj.on(event, (e) => {
-      this.actionHandlers[event].onEvent(e);
-    })
+    actionHandlers[data.action].onRedo(data.params, this);
   }
 }
